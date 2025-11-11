@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Friend</title>
+<style>
+    body {
+        margin: 0;
+        background: #70c5ce;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        flex-direction: column;
+        font-family: Arial, sans-serif;
+    }
+    canvas {
+        border: 3px solid black;
+        background: #4ec0ca;
+    }
+    #restartBtn {
+        display: none;
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 20px;
+        background-color: yellow;
+        border: 2px solid black;
+        cursor: pointer;
+    }
+    #loadingText {
+        display: none;
+        margin-top: 20px;
+        font-size: 30px;
+        color: white;
+    }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+<div id="loadingText">Loading...</div>
+<button id="restartBtn">Yenidən Başlat</button>
+
+<audio id="bgMusic" loop>
+    <source src="https://example.com/oyun-musiqi.mp3" type="audio/mpeg">
+</audio>
+
+<audio id="gameOverSound">
+    <source src="gozlerin.ogg" type="audio/mpeg">
+</audio>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const restartBtn = document.getElementById("restartBtn");
+const loadingText = document.getElementById("loadingText");
+const bgMusic = document.getElementById("bgMusic");
+const gameOverSound = document.getElementById("gameOverSound");
+
+let bird = {
+    x: 100,
+    y: 150,
+    width: 60,
+    height: 60,
+    velocity: 0,
+    gravity: 0.5,
+    jump: -8
+};
+
+let score = 0;
+let gameOver = false;
+let loading = false;
+
+const userImg = new Image();
+userImg.src = "./kamran.jpeg";
+
+let pipes = [];
+let pipeGap = 180; // asan borular
+let pipeWidth = 60;
+
+function newPipe() {
+    let topHeight = Math.floor(Math.random() * 200) + 50;
+    pipes.push({
+        x: canvas.width,
+        top: topHeight,
+        bottom: topHeight + pipeGap,
+        passed: false
+    });
+}
+
+let frame = 0;
+
+// Başlangıç yazısı
+let showStartText = true;
+setTimeout(() => { showStartText = false; }, 1500);
+
+function drawCloud(x, y, s) {
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(x, y, 20*s, 0, Math.PI*2);
+    ctx.arc(x+25*s, y+10*s, 25*s, 0, Math.PI*2);
+    ctx.arc(x-25*s, y+10*s, 25*s, 0, Math.PI*2);
+    ctx.fill();
+}
+
+function update() {
+    if(gameOver || loading) return;
+
+    bird.velocity += bird.gravity;
+    bird.y += bird.velocity;
+
+    if (frame % 120 === 0) newPipe();
+
+    pipes.forEach(pipe => {
+        pipe.x -= 1.5;
+
+        if (!pipe.passed && pipe.x + pipeWidth < bird.x) {
+            score++;
+            pipe.passed = true;
+        }
+
+        if (
+            bird.x + bird.width > pipe.x &&
+            bird.x < pipe.x + pipeWidth &&
+            (bird.y < pipe.top || bird.y + bird.height > pipe.bottom)
+        ) endGame();
+
+        if (bird.y + bird.height > canvas.height) endGame();
+        if (bird.y < 0) bird.y = 0;
+    });
+
+    frame++;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Bulutlar
+    drawCloud(80, 80, 1);
+    drawCloud(300, 120, 0.8);
+    drawCloud(200, 50, 1.2);
+
+    // Borular
+    ctx.fillStyle = "green";
+    pipes.forEach(pipe => {
+        ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+        ctx.fillRect(pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
+    });
+
+    // Kuş
+    if (userImg.complete) {
+        ctx.drawImage(userImg, bird.x, bird.y, bird.width, bird.height);
+    } else {
+        ctx.fillStyle = "yellow";
+        ctx.beginPath();
+        ctx.arc(bird.x + 20, bird.y + 20, 20, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Xal
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+    ctx.fillText("Xal: " + score, 20, 40);
+
+    // Başlangıç yazısı
+    if (showStartText) {
+        ctx.fillStyle = "yellow";
+        ctx.font = "40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Kamranı Uçurt", canvas.width / 2, canvas.height / 2);
+        ctx.textAlign = "start";
+    }
+}
+
+function endGame() {
+    gameOver = true;
+    bgMusic.pause();
+    gameOverSound.play();
+
+    loading = true;
+    let countdown = 5;
+    loadingText.style.display = "block";
+    loadingText.innerText = "Loading... " + countdown;
+
+    let interval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+            loadingText.innerText = "Loading... " + countdown;
+        } else {
+            clearInterval(interval);
+            loadingText.style.display = "none";
+            restartBtn.style.display = "block";
+            loading = false;
+        }
+    }, 1000);
+}
+
+function resetGame() {
+    bird.y = 150;
+    bird.velocity = 0;
+    pipes = [];
+    frame = 0;
+    score = 0;
+    gameOver = false;
+    showStartText = true;
+    restartBtn.style.display = "none";
+    bgMusic.currentTime = 0;
+    bgMusic.play();
+    setTimeout(() => { showStartText = false; }, 1500);
+}
+
+// Eventlər
+window.addEventListener("keydown", e => {
+    if (e.code === "Space" && !gameOver && !loading) bird.velocity = bird.jump;
+});
+window.addEventListener("mousedown", () => { if(!gameOver && !loading) bird.velocity = bird.jump; });
+window.addEventListener("touchstart", () => { if(!gameOver && !loading) bird.velocity = bird.jump; });
+restartBtn.addEventListener("click", resetGame);
+
+bgMusic.play().catch(()=>{});
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>
